@@ -16,7 +16,7 @@
 			}
 
 			:root {
-				--bg: #40114d;
+				--bg: rgb(22, 67, 98);
 				--surface: rgba(255, 255, 255, 0.06);
 				--surface-hover: rgba(255, 255, 255, 0.12);
 				--border: rgba(255, 255, 255, 0.1);
@@ -131,7 +131,7 @@
 		<script>
 			// ─── Config ──────────────────────────────────────────────────────────────────
 			// Bump CACHE_VERSION whenever you change the LINKS list to force a fresh fetch.
-			const CACHE_VERSION = "v1";
+			const CACHE_VERSION = "v2";
 			const CACHE_KEY = `favicon-cache-${CACHE_VERSION}`;
 			const FAVICON_API = (domain) =>
 				`https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
@@ -150,7 +150,7 @@
 				{ label: "AP News", href: "https://apnews.com/", domain: "apnews.com" },
 				{
 					label: "Apple Maps",
-					href: "https://beta.maps.apple.com/",
+					href: "https://maps.apple.com/",
 					domain: "maps.apple.com",
 				},
 				{
@@ -160,11 +160,15 @@
 				},
 				{ label: "BlueSky", href: "https://bsky.app/", domain: "bsky.app" },
 				{
+					label: "Bookshop",
+					href: "https://bookshop.org/ebooks",
+					domain: "bookshop.org",
+				},
+				{
 					label: "CBS Sports",
 					href: "https://www.cbssports.com/",
 					domain: "cbssports.com",
 				},
-				{ label: "Claude", href: "https://claude.ai/new", domain: "claude.ai" },
 				{
 					label: "Codeberg",
 					href: "https://codeberg.org/",
@@ -172,7 +176,7 @@
 				},
 				{
 					label: "Crucial Tracks",
-					href: "https://app.crucialtracks.org/dashboard",
+					href: "https://app.crucialtracks.org/login",
 					domain: "crucialtracks.org",
 				},
 				{
@@ -184,7 +188,7 @@
 				{ label: "ESPN", href: "https://www.espn.com/", domain: "espn.com" },
 				{
 					label: "Facebook",
-					href: "https://facebook.com/",
+					href: "https://www.facebook.com/",
 					domain: "facebook.com",
 				},
 				{
@@ -193,16 +197,16 @@
 					domain: "feedbin.com",
 				},
 				{ label: "FINVIZ", href: "https://finviz.com/", domain: "finviz.com" },
+				{
+					label: "Gemini",
+					href: "https://gemini.google.com/app",
+					domain: "gemini.google.com",
+				},
 				{ label: "Github", href: "https://github.com/", domain: "github.com" },
 				{
 					label: "Goodreads",
 					href: "https://www.goodreads.com/",
 					domain: "goodreads.com",
-				},
-				{
-					label: "Ground News",
-					href: "https://ground.news/",
-					domain: "ground.news",
 				},
 				{
 					label: "Hardcover",
@@ -211,13 +215,18 @@
 				},
 				{
 					label: "Instagram",
-					href: "https://instagram.com/",
+					href: "https://www.instagram.com/",
 					domain: "instagram.com",
 				},
 				{
 					label: "Last.fm",
 					href: "https://www.last.fm/user/clubrob",
 					domain: "last.fm",
+				},
+				{
+					label: "Libby",
+					href: "https://libbyapp.com/shelf",
+					domain: "libbyapp.com",
 				},
 				{
 					label: "Mastodon",
@@ -231,6 +240,11 @@
 					domain: "pgatour.com",
 				},
 				{
+					label: "Pocket Casts",
+					href: "https://pocketcasts.com/new-releases",
+					domain: "pocketcasts.com",
+				},
+				{
 					label: "Reddit",
 					href: "https://www.reddit.com/",
 					domain: "reddit.com",
@@ -242,23 +256,18 @@
 				},
 				{
 					label: "Threads",
-					href: "https://www.threads.com/following",
+					href: "https://www.threads.com/",
 					domain: "threads.com",
 				},
 				{
 					label: "Twitch",
-					href: "https://www.twitch.tv/",
+					href: "https://twitch.tv/",
 					domain: "twitch.tv",
 				},
 				{
 					label: "Walmart",
 					href: "https://www.walmart.com/",
 					domain: "walmart.com",
-				},
-				{
-					label: "Yahoo!",
-					href: "https://www.yahoo.com/",
-					domain: "yahoo.com",
 				},
 				{
 					label: "Y! Finance",
@@ -272,7 +281,7 @@
 				},
 				{
 					label: "YouTube",
-					href: "https://www.youtube.com/",
+					href: "https://youtube.com/",
 					domain: "youtube.com",
 				},
 			];
