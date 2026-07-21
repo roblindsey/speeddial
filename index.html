@@ -136,7 +136,7 @@
 		<script>
 			// ─── Config ──────────────────────────────────────────────────────────────────
 			// Bump CACHE_VERSION whenever you change the LINKS list to force a fresh fetch.
-			const CACHE_VERSION = "v2";
+			const CACHE_VERSION = "v3";
 			const CACHE_KEY = `favicon-cache-${CACHE_VERSION}`;
 			const FAVICON_API = (domain) =>
 				`https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
@@ -173,6 +173,11 @@
 					label: "CBS Sports",
 					href: "https://www.cbssports.com/",
 					domain: "cbssports.com",
+				},
+				{
+					label: "Claude AI",
+					href: "https://claude.ai/",
+					domain: "claude.ai",
 				},
 				{
 					label: "Codeberg",
