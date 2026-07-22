@@ -136,7 +136,7 @@
 		<script>
 			// ─── Config ──────────────────────────────────────────────────────────────────
 			// Bump CACHE_VERSION whenever you change the LINKS list to force a fresh fetch.
-			const CACHE_VERSION = "v3";
+			const CACHE_VERSION = "v4";
 			const CACHE_KEY = `favicon-cache-${CACHE_VERSION}`;
 			const FAVICON_API = (domain) =>
 				`https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
@@ -170,24 +170,9 @@
 					domain: "bookshop.org",
 				},
 				{
-					label: "CBS Sports",
-					href: "https://www.cbssports.com/",
-					domain: "cbssports.com",
-				},
-				{
 					label: "Claude AI",
 					href: "https://claude.ai/",
 					domain: "claude.ai",
-				},
-				{
-					label: "Codeberg",
-					href: "https://codeberg.org/",
-					domain: "codeberg.org",
-				},
-				{
-					label: "Crucial Tracks",
-					href: "https://app.crucialtracks.org/login",
-					domain: "crucialtracks.org",
 				},
 				{
 					label: "Discord",
@@ -263,6 +248,11 @@
 					label: "The Verge",
 					href: "https://www.theverge.com/",
 					domain: "theverge.com",
+				},
+				{
+					label: "thinkorswim",
+					href: "https://trade.thinkorswim.com",
+					domain: "thinkorswim.com",
 				},
 				{
 					label: "Threads",
