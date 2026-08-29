@@ -136,12 +136,17 @@
 		<script>
 			// ─── Config ──────────────────────────────────────────────────────────────────
 			// Bump CACHE_VERSION whenever you change the LINKS list to force a fresh fetch.
-			const CACHE_VERSION = "v4";
+			const CACHE_VERSION = "v5";
 			const CACHE_KEY = `favicon-cache-${CACHE_VERSION}`;
 			const FAVICON_API = (domain) =>
 				`https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
 
 			const LINKS = [
+				{
+					label: "AllMusic",
+					href: "https://www.allmusic.com/",
+					domain: "allmusic.com",
+				},
 				{
 					label: "Amazon",
 					href: "https://www.amazon.com/",
@@ -153,11 +158,6 @@
 					domain: "albumoftheyear.org",
 				},
 				{ label: "AP News", href: "https://apnews.com/", domain: "apnews.com" },
-				{
-					label: "Apple Maps",
-					href: "https://maps.apple.com/",
-					domain: "maps.apple.com",
-				},
 				{
 					label: "Bandcamp",
 					href: "https://bandcamp.com/",
@@ -204,6 +204,11 @@
 					domain: "goodreads.com",
 				},
 				{
+					label: "Google Maps",
+					href: "https://www.google.com/maps",
+					domain: "maps.google.com",
+				},
+				{
 					label: "Hardcover",
 					href: "https://hardcover.app/@robble",
 					domain: "hardcover.app",
@@ -230,6 +235,11 @@
 				},
 				{ label: "NPR", href: "https://www.npr.org/", domain: "npr.org" },
 				{
+					label: "Pagebound",
+					href: "https://pagebound.co/",
+					domain: "pagebound.co",
+				},
+				{
 					label: "PGA Tour",
 					href: "https://www.pgatour.com/",
 					domain: "pgatour.com",
@@ -250,14 +260,14 @@
 					domain: "theverge.com",
 				},
 				{
-					label: "thinkorswim",
-					href: "https://trade.thinkorswim.com",
-					domain: "thinkorswim.com",
-				},
-				{
 					label: "Threads",
 					href: "https://www.threads.com/",
 					domain: "threads.com",
+				},
+				{
+					label: "TradingView",
+					href: "https://www.tradingview.com/",
+					domain: "tradingview.com",
 				},
 				{
 					label: "Twitch",
