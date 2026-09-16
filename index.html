@@ -38,29 +38,133 @@
 				font-family: "DM Sans", sans-serif;
 				font-weight: 300;
 				color: var(--text);
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
 				min-height: 100vh;
-				padding: 2rem 1rem;
+				padding: 5rem 1rem;
 			}
 
-			.wrapper {
+			/* Search box sits near the top (body's own padding); row-gap repeats that same
+			   distance below it before the speed dial. Leftover space collects at the bottom. */
+			body {
+				display: grid;
+				grid-template-rows: auto auto 1fr;
+				row-gap: 5rem;
+				justify-items: center;
+			}
+
+			/* Search box */
+			.search-form {
+				grid-row: 1;
 				width: 100%;
 				max-width: 900px;
+			}
+
+			.search-input {
+				width: 100%;
+				padding: 0.7rem 1rem;
+				border-radius: var(--radius);
+				border: 1px solid var(--border);
+				background: var(--surface);
+				color: var(--text);
+				font-family: inherit;
+				font-size: 16px;
+				font-weight: 300;
+				outline: none;
+				transition:
+					background 0.15s,
+					border-color 0.15s;
+			}
+
+			.search-input::placeholder {
+				color: var(--text-dim);
+			}
+
+			.search-input:focus {
+				background: var(--surface-hover);
+				border-color: var(--accent);
+			}
+
+			/* Bangs reference panel */
+			.bangs-details {
+				position: relative;
+				margin-top: 0.35rem;
+			}
+
+			.bangs-details summary {
+				width: fit-content;
+				list-style: none;
+				cursor: pointer;
+				color: var(--text-dim);
+				font-size: 0.8rem;
+				letter-spacing: 0.02em;
+				user-select: none;
+			}
+
+			.bangs-details summary::-webkit-details-marker {
+				display: none;
+			}
+
+			.bangs-details summary::before {
+				content: "▸ ";
+			}
+
+			.bangs-details[open] summary::before {
+				content: "▾ ";
+			}
+
+			.bangs-details summary:hover {
+				color: var(--text);
+			}
+
+			/* Positioned out of flow so opening it never shifts the grid below. */
+			.bangs-list {
+				position: absolute;
+				top: calc(100% + 0.5rem);
+				left: 0;
+				right: 0;
+				z-index: 10;
+				padding: 0.85rem 1rem;
+				columns: 150px;
+				column-gap: 1.25rem;
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+				max-height: 40vh;
+				overflow-y: hidden;
+				overflow-x: auto;
+				backdrop-filter: blur(8px);
+			}
+
+			.bang-entry {
 				display: flex;
-				flex-direction: column;
-				align-items: center;
-				gap: 2rem;
+				align-items: baseline;
+				gap: 0.4rem;
+				font-size: 0.85rem;
+				white-space: nowrap;
+				break-inside: avoid;
+				margin-bottom: 0.35rem;
+			}
+
+			.bang-entry code {
+				color: var(--accent);
+				font-family: ui-monospace, "SF Mono", Consolas, monospace;
+				flex-shrink: 0;
+			}
+
+			.bang-entry span {
+				color: var(--text-dim);
+				overflow: hidden;
+				text-overflow: ellipsis;
 			}
 
 			/* Links grid */
 			.links-grid {
+				grid-row: 2;
 				display: grid;
 				grid-template-columns: repeat(6, 1fr);
 				gap: 0.5rem 1.75rem;
 				width: 100%;
+				max-width: 900px;
 			}
 
 			.link-item {
@@ -129,9 +233,20 @@
 		</style>
 	</head>
 	<body>
-		<div class="wrapper">
-			<nav class="links-grid" id="links-grid" aria-label="Bookmarks"></nav>
-		</div>
+		<form class="search-form" id="search-form" autocomplete="off">
+			<input
+				type="text"
+				id="search-input"
+				class="search-input"
+				placeholder="Search, or !bang query"
+				aria-label="Search"
+			/>
+			<details class="bangs-details">
+				<summary>!bangs</summary>
+				<div class="bangs-list" id="bangs-list"></div>
+			</details>
+		</form>
+		<nav class="links-grid" id="links-grid" aria-label="Bookmarks"></nav>
 
 		<script>
 			// ─── Config ──────────────────────────────────────────────────────────────────
@@ -139,6 +254,126 @@
 			// time, so this only fires for a link whose favicon could not be fetched then.
 			const FAVICON_API = (domain) =>
 				`https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+
+			// ─── Search engines & bangs ────────────────────────────────────────────────
+			// Hand-edited. `default` is used when no !bang matches (or none is given).
+			// Each url is a template with %s standing in for the encoded query. `name` is
+			// only used to label entries in the on-page bangs list.
+			const SEARCH_ENGINES = {
+				default: { name: "Google", url: "https://www.google.com/search?q=%s" },
+				bangs: {
+					g: { name: "Google", url: "https://www.google.com/search?q=%s" },
+					ddg: { name: "DuckDuckGo", url: "https://duckduckgo.com/?q=%s" },
+					yt: {
+						name: "YouTube",
+						url: "https://www.youtube.com/results?search_query=%s",
+					},
+					gh: { name: "GitHub", url: "https://github.com/search?q=%s" },
+					w: {
+						name: "Wikipedia",
+						url: "https://en.wikipedia.org/w/index.php?search=%s",
+					},
+					r: { name: "Reddit", url: "https://www.reddit.com/search/?q=%s" },
+					maps: { name: "Google Maps", url: "https://www.google.com/maps/search/%s" },
+
+					// Imported from browser-search-exporter (Chrome keyword searches).
+					a: { name: "AllMusic", url: "http://www.allmusic.com/search/all/%s" },
+					al: {
+						name: "Album of The Year",
+						url: "https://www.albumoftheyear.org/search/?q=%s",
+					},
+					am: {
+						name: "Amazon",
+						url: "https://amazon.com/s/ref=nb_sb_noss?url=search-alias%3Daps&field-keywords=%s",
+					},
+					by: {
+						name: "Bing (past year)",
+						url: "https://www.bing.com/search?q=%s&filters=ex1%3a%22ez5_17848_18213%22",
+					},
+					cani: { name: "Can I Use", url: "https://caniuse.com/#search=%s" },
+					ch: {
+						name: "Chocolatey Gallery",
+						url: "https://chocolatey.org/packages?q=%s",
+					},
+					dy: {
+						name: "DuckDuckGo (past year)",
+						url: "https://duckduckgo.com/?q=%s&t=ffab&df=y&ia=web",
+					},
+					ge: { name: "Genius Lyrics", url: "https://genius.com/search?q=%s" },
+					gf: { name: "Google Fonts", url: "https://fonts.google.com/?query=%s" },
+					gy: {
+						name: "Google (past year)",
+						url: "https://www.google.com/search?hl=en&tbo=1&tbs=qdr:y&q=%s",
+					},
+					h: {
+						name: "Hoopla",
+						url: "https://www.hoopladigital.com/search?q=%s&scope=everything&kindId=5",
+					},
+					hub: {
+						name: "Docker Hub",
+						url: "https://hub.docker.com/search?q=%s&type=image",
+					},
+					i: {
+						name: "IMDb",
+						url: "http://www.imdb.com/find?ref_=nv_sr_fn&q=%s&s=all",
+					},
+					mdn: {
+						name: "MDN",
+						url: "https://developer.mozilla.org/en-US/search?q=%s",
+					},
+					ncc: {
+						name: "NC Cardinal",
+						url: "https://www.nccardinal.org/eg/opac/results?query=%s&qtype=keyword&fi%3Asearch_format=&locg=1&detail_record_view=1",
+					},
+					npm: { name: "npm", url: "https://www.npmjs.com/search?q=%s" },
+					ol: {
+						name: "Open Library",
+						url: "https://openlibrary.org/search?q=%s&mode=ebooks&has_fulltext=true",
+					},
+					pac: {
+						name: "Packagist",
+						url: "https://packagist.org/search/?search_query%5Bquery%5D=%s",
+					},
+					st: { name: "StockTwits", url: "https://stocktwits.com/symbol/%s" },
+					un: {
+						name: "Unsplash",
+						url: "https://unsplash.com/search/photos/%s",
+					},
+					wp: {
+						name: "WordPress Dev Resources",
+						url: "https://developer.wordpress.org/?s=%s",
+					},
+					wpp: {
+						name: "WordPress Plugins",
+						url: "https://wordpress.org/plugins/?s=%s",
+					},
+					yf: { name: "Yahoo Finance", url: "https://finance.yahoo.com/quote/%s/" },
+
+					// Site search for speed-dial links that have a real public search page.
+					ap: { name: "AP News", url: "https://apnews.com/search?q=%s" },
+					bs: { name: "BlueSky", url: "https://bsky.app/search?q=%s" },
+					bk: {
+						name: "Bookshop",
+						url: "https://bookshop.org/search?keywords=%s",
+					},
+					e: {
+						name: "eBay",
+						url: "https://www.ebay.com/sch/i.html?_nkw=%s",
+					},
+					es: { name: "ESPN", url: "https://www.espn.com/search/_/q/%s" },
+					fv: { name: "FINVIZ (quote)", url: "https://finviz.com/quote.ashx?t=%s" },
+					gr: { name: "Goodreads", url: "https://www.goodreads.com/search?q=%s" },
+					hc: { name: "Hardcover", url: "https://hardcover.app/search?q=%s" },
+					l: { name: "Last.fm", url: "https://www.last.fm/search?q=%s" },
+					th: { name: "Threads", url: "https://www.threads.net/search?q=%s" },
+					tv: {
+						name: "TradingView (symbol)",
+						url: "https://www.tradingview.com/symbols/%s",
+					},
+					tw: { name: "Twitch", url: "https://www.twitch.tv/search?term=%s" },
+					wm: { name: "Walmart", url: "https://www.walmart.com/search?q=%s" },
+				},
+			};
 
 			// LINKS:BEGIN — generated by scripts/sync-raindrop.mjs from the public Raindrop.io
 			const LINKS = [
@@ -316,6 +551,59 @@
 				"youtube.com": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABr0lEQVRYhe3Xv48MYQDG8c87uTjubkmEjd+hkEs0crfRiUahYVfhDxCUCpVoVBKiENGKnEKiccUFEY2C2uxFIuQo/CgUGw171p5iRzEzCiGxs5sdxT3J5H0zmed9vsX7zjwTkiRRpqJS01cB/geAkE8StXEcxSx2o4oKJrNxQ/Z8wPq/rPcVCXrZvI1v2djCezTxMIhXfgEkavuxkAWPQh/QCOIXIVFbhzfYMaLwXB8xHeF4CeGwC/UIB0oIz3Uwwr4SAfZG2N6XpbqR0w2ioZzgrRE29WWZWMutizy/w6HZQQGqEaYKWWemeXqTe1fZs60owFRxgFwnDvN6nitnqUz0664M51U8voYLJ3m7wKl6X/uj9G/B2FBWWfnB9btcnqPd6Rtg2SD7YP4J52/w7lMRd7s4wOIS567xrFkkONfyGD5jyz9bOl3OXOL2A3q9QcKhFRK1xzgy6EoF9SjCq5LC4WWEuESAZl5IlrBzxOFpIQni7zgm7WujDK8Hcff3UtrAjLQbbpaWz8nsyktpJC2pf1JeShN8kR7xTna/Je2Ci7gfxF0Iq79mqwBlA/wEihVj07SFCdQAAAAASUVORK5CYII=",
 			};
 			// ICONS:END
+
+			// ─── Search ──────────────────────────────────────────────────────────────────
+			// A !bang anywhere in the query picks the engine; the rest of the text is the
+			// search term. An unrecognized or missing bang falls back to SEARCH_ENGINES.default.
+			const searchForm = document.getElementById("search-form");
+			const searchInput = document.getElementById("search-input");
+
+			searchForm.addEventListener("submit", (event) => {
+				event.preventDefault();
+				const query = searchInput.value.trim();
+				if (!query) return;
+
+				const bangMatch = query.match(/(?:^|\s)!(\S+)/);
+				let engine = SEARCH_ENGINES.default;
+				let term = query;
+
+				if (bangMatch) {
+					const bang = bangMatch[1].toLowerCase();
+					if (bang in SEARCH_ENGINES.bangs) {
+						engine = SEARCH_ENGINES.bangs[bang];
+						term = (query.slice(0, bangMatch.index) + query.slice(bangMatch.index + bangMatch[0].length)).trim();
+					}
+				}
+
+				window.location.href = engine.url.replace("%s", encodeURIComponent(term));
+			});
+
+			searchInput.focus();
+
+			// ─── Bangs list panel ────────────────────────────────────────────────────────
+			// Built from SEARCH_ENGINES so the list can never drift from what actually works.
+			const bangsList = document.getElementById("bangs-list");
+			const bangEntries = Object.entries(SEARCH_ENGINES.bangs).sort(([a], [b]) =>
+				a.localeCompare(b),
+			);
+			bangsList.innerHTML = [
+				`<div class="bang-entry"><code>default</code><span>${SEARCH_ENGINES.default.name}</span></div>`,
+				...bangEntries.map(
+					([bang, { name }]) =>
+						`<div class="bang-entry"><code>!${bang}</code><span>${name}</span></div>`,
+				),
+			].join("");
+
+			// Close the panel on any click outside it, or when focus returns to the input.
+			const bangsDetails = document.querySelector(".bangs-details");
+			document.addEventListener("click", (event) => {
+				if (bangsDetails.open && !bangsDetails.contains(event.target)) {
+					bangsDetails.open = false;
+				}
+			});
+			searchInput.addEventListener("focus", () => {
+				bangsDetails.open = false;
+			});
 
 			// ─── Build grid ──────────────────────────────────────────────────────────────
 			const grid = document.getElementById("links-grid");
