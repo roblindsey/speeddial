@@ -39,6 +39,24 @@ The collection URL defaults to a constant in the script and is overridable via `
 
 **Fragility to know about:** the data source is `…/index.pageContext.json`, the public page's *undocumented* server-rendered data route. It can change without notice. If it does, the RSS feed at `…/feed` is a token-free fallback (50-item cap, `domain` derivable from `link`). Also note the route's quirk: the first `/view/` parameter is silently namespaced away, so the URL leads with a throwaway `theme=auto` to make `perpage` and `page` take effect.
 
+## Search suggestions
+
+The search box has an autocomplete dropdown fed by two sources:
+
+- **`!bang` completion** — local and instant, built from `SEARCH_ENGINES.bangs`. It triggers when the box ends in a partial bang (`react !g`); Tab or Enter completes the highlighted bang.
+- **Search suggestions** — from DuckDuckGo via `worker/suggest.js`, a Cloudflare Worker. DDG's autocomplete endpoint sends no CORS headers (the same wall the favicon service hits), so the page cannot call it directly. The Worker forwards `?q=`, normalizes the reply to a plain string array, and adds the CORS header. It holds no secrets, so it is safe in this public repo. Suggestions only fill the box; the search itself still goes to the default engine or the query's bang.
+
+`SUGGEST_API` in `index.html` holds the deployed Worker's URL. **Empty disables remote suggestions** (bang completion still works). To deploy, run this from `worker/`. It needs a free Cloudflare account; one user's typing stays far inside the free tier:
+
+```sh
+npx wrangler login
+npx wrangler deploy   # prints https://speeddial-suggest.<account>.workers.dev
+```
+
+Request volume is kept low by a 150 ms debounce and two caches: an in-memory `Map` per tab (instant on backspace, and a prefix's cached results are filtered to show while a request is in flight), and a one-day `Cache-Control` header from the Worker so the browser's HTTP cache answers repeat queries. There is deliberately no cache inside the Worker: with one user it would only duplicate the browser's cache.
+
+Any failure (timeout, non-200, bad shape) just means no dropdown appears. To test locally without deploying, serve the page over HTTP with `SUGGEST_API` pointed at any server that mimics the Worker's response.
+
 ## No runtime caching
 
 There is deliberately no `localStorage` favicon cache and no `CACHE_VERSION`. An earlier version had both; they never worked, because the favicon service sends no `Access-Control-Allow-Origin` — with `crossOrigin="anonymous"` the image load is blocked, and without it the canvas is tainted and `toDataURL()` throws. Build-time inlining replaces them, so there is nothing left to invalidate.

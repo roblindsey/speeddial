@@ -83,6 +83,52 @@
 				border-color: var(--accent);
 			}
 
+			/* Suggestions dropdown — out of flow, like the bangs panel, and above it. */
+			.search-field {
+				position: relative;
+			}
+
+			.suggest-list {
+				position: absolute;
+				top: calc(100% + 0.35rem);
+				left: 0;
+				right: 0;
+				z-index: 20;
+				list-style: none;
+				padding: 0.35rem;
+				background: var(--bg);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+			}
+
+			.suggest-item {
+				display: flex;
+				align-items: baseline;
+				gap: 0.6rem;
+				padding: 0.45rem 0.65rem;
+				border-radius: 8px;
+				font-size: 15px;
+				cursor: pointer;
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.suggest-item.active {
+				background: var(--surface-hover);
+			}
+
+			.suggest-item code {
+				color: var(--accent);
+				font-family: ui-monospace, "SF Mono", Consolas, monospace;
+			}
+
+			.suggest-item .hint {
+				color: var(--text-dim);
+				font-size: 0.85rem;
+			}
+
 			/* Bangs reference panel */
 			.bangs-details {
 				position: relative;
@@ -234,13 +280,20 @@
 	</head>
 	<body>
 		<form class="search-form" id="search-form" autocomplete="off">
-			<input
-				type="text"
-				id="search-input"
-				class="search-input"
-				placeholder="Search, or !bang query"
-				aria-label="Search"
-			/>
+			<div class="search-field">
+				<input
+					type="text"
+					id="search-input"
+					class="search-input"
+					placeholder="Search, or !bang query"
+					aria-label="Search"
+					role="combobox"
+					aria-autocomplete="list"
+					aria-controls="suggest-list"
+					aria-expanded="false"
+				/>
+				<ul class="suggest-list" id="suggest-list" role="listbox" hidden></ul>
+			</div>
 			<details class="bangs-details">
 				<summary>!bangs</summary>
 				<div class="bangs-list" id="bangs-list"></div>
@@ -260,7 +313,7 @@
 			// Each url is a template with %s standing in for the encoded query. `name` is
 			// only used to label entries in the on-page bangs list.
 			const SEARCH_ENGINES = {
-				default: { name: "Google", url: "https://www.google.com/search?q=%s" },
+				default: { name: "Brave", url: "https://search.brave.com/search?q=%s" },
 				bangs: {
 					g: { name: "Google", url: "https://www.google.com/search?q=%s" },
 					ddg: { name: "DuckDuckGo", url: "https://duckduckgo.com/?q=%s" },
@@ -583,6 +636,212 @@
 			});
 			searchInput.addEventListener("focus", () => {
 				bangsDetails.open = false;
+			});
+
+			// ─── Suggestions ─────────────────────────────────────────────────────────────
+			// Two sources: !bang completions from SEARCH_ENGINES (local, instant), and search
+			// suggestions from worker/suggest.js, a DuckDuckGo proxy. An empty SUGGEST_API
+			// turns remote suggestions off; bang completion still works.
+			const SUGGEST_API = "https://speeddial-suggest.rob-a99.workers.dev/";
+			const SUGGEST_DEBOUNCE_MS = 150;
+			const SUGGEST_TIMEOUT_MS = 1500;
+			const MAX_SUGGESTIONS = 8;
+
+			const suggestList = document.getElementById("suggest-list");
+			const suggestCache = new Map(); // term -> suggestions, for this tab's lifetime
+			let suggestions = []; // [{ label, hint?, value, submit }]
+			let activeIndex = -1;
+			let typedValue = ""; // restored when arrowing back above the first item
+			let latestTerm = "";
+			let debounceTimer;
+
+			// The term to suggest for, minus any recognized !bang, which is kept on the side
+			// so a chosen suggestion still goes to the same engine.
+			function parseQuery(value) {
+				const match = value.match(/(?:^|\s)!(\S+)/);
+				const bang = match?.[1].toLowerCase();
+				if (bang && bang in SEARCH_ENGINES.bangs) {
+					const term = value.slice(0, match.index) + value.slice(match.index + match[0].length);
+					return { bang, term: term.trim() };
+				}
+				return { bang: null, term: value.trim() };
+			}
+
+			function toSearchItems(list) {
+				const { bang } = parseQuery(typedValue);
+				return list.slice(0, MAX_SUGGESTIONS).map((text) => ({
+					label: text,
+					value: bang ? `!${bang} ${text}` : text,
+					submit: true,
+				}));
+			}
+
+			// A bang being typed at the end of the box ("react !g") completes from the list.
+			function bangItems(match) {
+				const prefix = match[1].toLowerCase();
+				const before = typedValue.slice(0, match.index + match[0].length - match[1].length - 1);
+				return bangEntries
+					.filter(([bang]) => bang.startsWith(prefix))
+					.slice(0, MAX_SUGGESTIONS)
+					.map(([bang, { name }]) => ({
+						label: `!${bang}`,
+						hint: name,
+						value: `${before}!${bang} `,
+						submit: false,
+					}));
+			}
+
+			// While a request is in flight, the longest cached prefix's suggestions that still
+			// match make the dropdown feel instant.
+			function cachedPrefixMatches(term) {
+				const lower = term.toLowerCase();
+				for (let n = term.length - 1; n > 0; n--) {
+					const cached = suggestCache.get(term.slice(0, n));
+					if (cached) {
+						const matches = cached.filter((s) => s.toLowerCase().startsWith(lower));
+						return matches.length ? matches : null;
+					}
+				}
+				return null;
+			}
+
+			// Any failure just means no dropdown; the search box works as it always has.
+			async function fetchSuggestions(term) {
+				try {
+					const res = await fetch(`${SUGGEST_API}?q=${encodeURIComponent(term)}`, {
+						signal: AbortSignal.timeout(SUGGEST_TIMEOUT_MS),
+					});
+					if (!res.ok) return null;
+					const list = await res.json();
+					if (!Array.isArray(list)) return null;
+					suggestCache.set(term, list);
+					return list;
+				} catch {
+					return null;
+				}
+			}
+
+			function renderSuggestions(items) {
+				suggestions = items;
+				activeIndex = -1;
+				suggestList.replaceChildren(
+					...items.map((item, i) => {
+						const li = document.createElement("li");
+						li.id = `suggest-${i}`;
+						li.className = "suggest-item";
+						li.setAttribute("role", "option");
+						if (item.submit) {
+							li.textContent = item.label;
+						} else {
+							const code = document.createElement("code");
+							code.textContent = item.label;
+							li.appendChild(code);
+						}
+						if (item.hint) {
+							const hint = document.createElement("span");
+							hint.className = "hint";
+							hint.textContent = item.hint;
+							li.appendChild(hint);
+						}
+						// mousedown, not click, so the input never loses focus.
+						li.addEventListener("mousedown", (event) => {
+							event.preventDefault();
+							chooseSuggestion(i);
+						});
+						li.addEventListener("mousemove", () => highlightSuggestion(i, false));
+						return li;
+					}),
+				);
+				suggestList.hidden = !items.length;
+				searchInput.setAttribute("aria-expanded", String(items.length > 0));
+				searchInput.removeAttribute("aria-activedescendant");
+			}
+
+			function highlightSuggestion(index, fillInput) {
+				activeIndex = index;
+				[...suggestList.children].forEach((li, i) => {
+					li.classList.toggle("active", i === index);
+					li.setAttribute("aria-selected", String(i === index));
+				});
+				if (index < 0) searchInput.removeAttribute("aria-activedescendant");
+				else searchInput.setAttribute("aria-activedescendant", `suggest-${index}`);
+				if (fillInput) searchInput.value = index < 0 ? typedValue : suggestions[index].value;
+			}
+
+			function chooseSuggestion(index) {
+				const item = suggestions[index];
+				searchInput.value = item.value;
+				if (item.submit) {
+					renderSuggestions([]);
+					searchForm.requestSubmit();
+				} else {
+					updateSuggestions();
+				}
+			}
+
+			function updateSuggestions() {
+				typedValue = searchInput.value;
+				clearTimeout(debounceTimer);
+
+				const partialBang = typedValue.match(/(?:^|\s)!(\S*)$/);
+				if (partialBang) {
+					latestTerm = "";
+					renderSuggestions(bangItems(partialBang));
+					return;
+				}
+
+				const { term } = parseQuery(typedValue);
+				latestTerm = term;
+				if (!term || !SUGGEST_API) {
+					renderSuggestions([]);
+					return;
+				}
+				if (suggestCache.has(term)) {
+					renderSuggestions(toSearchItems(suggestCache.get(term)));
+					return;
+				}
+
+				const interim = cachedPrefixMatches(term);
+				if (interim) renderSuggestions(toSearchItems(interim));
+
+				debounceTimer = setTimeout(async () => {
+					const list = await fetchSuggestions(term);
+					// Drop replies to anything but the latest term, and never yank the list
+					// out from under an arrow-key selection.
+					if (list && term === latestTerm && activeIndex < 0) {
+						renderSuggestions(toSearchItems(list));
+					}
+				}, SUGGEST_DEBOUNCE_MS);
+			}
+
+			searchInput.addEventListener("input", updateSuggestions);
+			searchInput.addEventListener("focus", updateSuggestions);
+			searchInput.addEventListener("blur", () => renderSuggestions([]));
+			searchForm.addEventListener("submit", () => renderSuggestions([]));
+
+			searchInput.addEventListener("keydown", (event) => {
+				if (!suggestions.length) return;
+				const last = suggestions.length - 1;
+
+				if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+					event.preventDefault();
+					const step = event.key === "ArrowDown" ? 1 : -1;
+					// Cycles through -1 (what was typed) so you can always get back to it.
+					let next = activeIndex + step;
+					if (next > last) next = -1;
+					if (next < -1) next = last;
+					highlightSuggestion(next, true);
+				} else if (event.key === "Escape") {
+					event.preventDefault();
+					searchInput.value = typedValue;
+					renderSuggestions([]);
+				} else if (event.key === "Enter" && activeIndex >= 0 && !suggestions[activeIndex].submit) {
+					event.preventDefault();
+					chooseSuggestion(activeIndex);
+				} else if (event.key === "Tab" && !event.shiftKey && !suggestions[0].submit) {
+					event.preventDefault();
+					chooseSuggestion(Math.max(activeIndex, 0));
+				}
 			});
 
 			// ─── Build grid ──────────────────────────────────────────────────────────────
