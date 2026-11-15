@@ -33,12 +33,14 @@
 
 			html,
 			body {
-				height: 100%;
 				background-color: var(--bg);
 				font-family: "DM Sans", sans-serif;
 				font-weight: 300;
 				color: var(--text);
+				/* dvh tracks the mobile browser's collapsing chrome; the vh above is the fallback
+				   for browsers without dvh. */
 				min-height: 100vh;
+				min-height: 100dvh;
 			}
 
 			/* Search box sits near the top (body's own padding); row-gap repeats that same
@@ -217,6 +219,7 @@
 				display: flex;
 				flex-direction: column;
 				align-items: center;
+				justify-content: flex-start;
 				gap: 0.4rem;
 				padding: 0.6rem 0.4rem;
 				border-radius: var(--radius);
@@ -224,16 +227,31 @@
 				color: var(--text);
 				font-size: 15px;
 				letter-spacing: 0.01em;
+				text-align: center;
+				line-height: 1.25;
+				overflow-wrap: anywhere;
+				-webkit-tap-highlight-color: transparent;
 				transition:
 					background 0.15s,
 					color 0.15s,
 					transform 0.15s;
 			}
 
-			.link-item:hover {
+			/* Hover lift only where a real pointer exists: on touch it would stick after a tap. */
+			@media (hover: hover) {
+				.link-item:hover {
+					background: var(--surface-hover);
+					color: var(--text);
+					transform: translateY(-2px);
+				}
+			}
+
+			.link-item:active {
 				background: var(--surface-hover);
-				color: var(--text);
-				transform: translateY(-2px);
+			}
+
+			.link-label {
+				max-width: 100%;
 			}
 
 			.link-item img {
@@ -266,14 +284,105 @@
 				text-transform: uppercase;
 			}
 
+			/* Tablet / large phone: fewer columns, and the generous desktop spacing tightened so
+			   the grid still starts above the fold. */
+			@media (max-width: 760px) {
+				body {
+					row-gap: 2.5rem;
+					padding: 2.5rem 1rem;
+				}
+
+				.links-grid {
+					grid-template-columns: repeat(5, 1fr);
+					gap: 0.25rem 0.75rem;
+				}
+			}
+
 			@media (max-width: 640px) {
 				.links-grid {
 					grid-template-columns: repeat(4, 1fr);
 				}
+
+				/* Multicol under a capped height fragments sideways, so the tail of the list
+				   would be clipped off-screen. A grid stacks downward instead and scrolls
+				   vertically, which is what a thumb can reach. */
+				.bangs-list {
+					columns: initial;
+					display: grid;
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+					column-gap: 0.75rem;
+					max-height: 50vh;
+					overflow-x: hidden;
+					overflow-y: auto;
+					-webkit-overflow-scrolling: touch;
+				}
 			}
-			@media (max-width: 420px) {
+
+			/* Phones: the whole dial should sit above the fold without scrolling, so the
+			   cells shrink, labels clamp to one line, and the page chrome tightens. Four
+			   columns is nine rows for the current 33 links. */
+			@media (max-width: 480px) {
+				body {
+					row-gap: 0.75rem;
+					padding: 0.75rem;
+				}
+
 				.links-grid {
-					grid-template-columns: repeat(3, 1fr);
+					grid-template-columns: repeat(4, 1fr);
+					gap: 0 0.25rem;
+				}
+
+				.link-item {
+					padding: 4px 2px;
+					font-size: 11px;
+					gap: 3px;
+				}
+
+				.link-item img,
+				.link-item .icon-placeholder {
+					width: 26px;
+					height: 26px;
+				}
+
+				/* A wrapped label would make its row taller than every other row, so on a
+				   phone the long ones are cut with an ellipsis instead. */
+				.link-label {
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
+				}
+			}
+
+			/* Anything wider than an iPhone SE takes a fifth column: seven rows, not nine. */
+			@media (min-width: 380px) and (max-width: 480px) {
+				.links-grid {
+					grid-template-columns: repeat(5, 1fr);
+				}
+			}
+
+			/* Short viewports — an SE-sized phone, or any phone whose browser keeps its
+			   toolbars on screen — need roughly another 60px shaved off. */
+			@media (max-width: 480px) and (max-height: 620px) {
+				body {
+					row-gap: 0.5rem;
+					padding: 0.5rem;
+				}
+
+				.link-item {
+					padding: 2px 1px;
+					font-size: 10px;
+				}
+
+				.link-item img,
+				.link-item .icon-placeholder {
+					width: 22px;
+					height: 22px;
+				}
+			}
+
+			@media (max-width: 340px) {
+				.bangs-list {
+					grid-template-columns: minmax(0, 1fr);
 				}
 			}
 		</style>
@@ -871,9 +980,15 @@
 					img.style.display = "none"; // keep letter placeholder visible
 				});
 
+				// The label is its own element so the phone breakpoints can clamp it to a
+				// single line; a bare text node cannot be given overflow rules.
+				const text = document.createElement("span");
+				text.className = "link-label";
+				text.textContent = label;
+
 				a.appendChild(placeholder);
 				a.appendChild(img);
-				a.appendChild(document.createTextNode(label));
+				a.appendChild(text);
 				grid.appendChild(a);
 
 				return { img, domain, icon };
