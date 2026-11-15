@@ -360,6 +360,75 @@
 				}
 			}
 
+			/* Tall phones have height to spare once all 33 links fit, so the cells grow to
+			   use it. The thresholds read the large viewport (toolbars minimized); the sizes
+			   below are measured against the small one (toolbars shown), which is the real
+			   fold — roughly 140px less on these devices.
+
+			   Narrow and tall, e.g. a 375x812 mini: still four columns and nine rows, so
+			   there is only room for a modest step up. Measured fold ~672px, content 658px. */
+			@media (max-width: 379px) and (min-height: 760px) {
+				.links-grid {
+					gap: 2px 0.25rem;
+				}
+
+				.link-item {
+					padding: 6px 2px;
+					gap: 4px;
+				}
+
+				.link-item img,
+				.link-item .icon-placeholder {
+					width: 30px;
+					height: 30px;
+				}
+			}
+
+			/* 390-393px wide and tall, e.g. an iPhone 14/15 Pro: five columns, seven rows.
+			   Measured fold ~720px, content 668px. */
+			@media (min-width: 380px) and (max-width: 480px) and (min-height: 780px) {
+				body {
+					row-gap: 1rem;
+					padding: 1rem;
+				}
+
+				.links-grid {
+					gap: 8px 0.25rem;
+				}
+
+				.link-item {
+					padding: 8px 4px;
+					font-size: 12px;
+					gap: 5px;
+				}
+
+				.link-item img,
+				.link-item .icon-placeholder {
+					width: 36px;
+					height: 36px;
+				}
+			}
+
+			/* The largest phones, e.g. a 430x932 Pro Max or Plus. Measured fold ~790px,
+			   content 766px: 42px icons, the biggest the seven rows will take. */
+			@media (min-width: 380px) and (max-width: 480px) and (min-height: 900px) {
+				.links-grid {
+					gap: 10px 0.25rem;
+				}
+
+				.link-item {
+					padding: 10px 4px;
+					font-size: 13px;
+					gap: 6px;
+				}
+
+				.link-item img,
+				.link-item .icon-placeholder {
+					width: 42px;
+					height: 42px;
+				}
+			}
+
 			/* Short viewports — an SE-sized phone, or any phone whose browser keeps its
 			   toolbars on screen — need roughly another 60px shaved off. */
 			@media (max-width: 480px) and (max-height: 620px) {
